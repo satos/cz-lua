@@ -1,0 +1,34 @@
+{
+  "app_name": "CZ Lua",
+  "package_name": "cz_lua",
+  "version": "0.1.0",
+  "description": "CZ Lua: a LÖVE-style Lua environment for CardputerZero (v0 test build)",
+  "store": {
+    "summary": "Write and run small Lua games on the device itself",
+    "description": "CZ Lua is a self-contained Lua 5.4 environment for CardputerZero with a LÖVE-style load/update/draw API (czlua.*). v0 test build: runs the bundled Game of Life sample.",
+    "categories": [
+      "TODO: pick 1-2 real categories from docs/APP_BUILDER_JSON.md"
+    ],
+    "screenshots": [
+      "screenshot/app-simulator-dark-darwin.png",
+      "screenshot/app-simulator-light-darwin.png"
+    ],
+    "icon": "assets/images/template.png",
+    "license": "MIT",
+    "source_repo": "https://github.com/CardputerZero/Template",
+    "author": {
+      "github": "TODO-your-github-login",
+      "display_name": "TODO: Your Name"
+    },
+    "share_code": "TODO",
+    "permissions": {
+      "camera": false,
+      "microphone": false,
+      "imu": false,
+      "network": false,
+      "additional_hardware": false,
+      "background_service": false,
+      "external_display": false
+    }
+  }
+}
