@@ -1,521 +1,152 @@
-<p align="center">
-  <picture>
-    <source
-      media="(prefers-color-scheme: dark)"
-      srcset="./screenshot/app-simulator-dark-darwin.png"
-    />
-    <source
-      media="(prefers-color-scheme: light)"
-      srcset="./screenshot/app-simulator-light-darwin.png"
-    />
-  <img
-    src="./screenshot/app-simulator-light-darwin.png"
-    alt="CardputerZero Template running in the desktop simulator"
-    width="315"
-  />
-  </picture>
-</p>
+# CZ Lua
 
-<div align="center">
-    <h1>CardputerZero Application Template</h1>
-</div>
+**CZ Lua is a self-contained Lua game environment for CardputerZero —
+write, run and draw, all on the device.**
 
-<div align="center">
-  <p>A simple starter template for building embedded Linux GUI applications with LVGL and CMake.</p>
-</div>
+CardputerZero 上で「書く→実行→描く」が完結する、LÖVE（love2d）風の小型ゲーム環境です。
+TIC-80 のように端末内で開発が完結するツールを、ネイティブ実装で目指しています。
+日本語入力は対象外（コードは英語のみ）。公開（CardputerZero ストア審査制）も視野に入れています。
 
-<p align="center" style="margin: 20px 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;">
-  <img src="https://img.shields.io/badge/SDL3-173B73?style=flat-square&logo=sdl&logoColor=white" alt="SDL3" />
-  <img src="https://img.shields.io/badge/CMake-064F8C?style=flat-square&logo=cmake&logoColor=white" alt="CMake" />
-  <img src="https://img.shields.io/badge/LVGL-2A9FD6?style=flat-square&logo=lvgl&logoColor=white" alt="LVGL" />
-  <img src="https://img.shields.io/badge/Raspberry%20Pi-A22846?style=flat-square&logo=raspberrypi&logoColor=white" alt="Raspberry Pi" />
-</p>
+- Device: CardputerZero (320×170, 46-key keyboard, Cortex-A53 / 512 MB RAM)
+- Language: Lua 5.4.8 (bundled from source, `third_party/lua/`)
+- UI: LVGL v9.5.0, C++ (official Template based)
+- Repo: https://github.com/satos/cz-lua
 
-<p align="center">
-  <a href="https://discord.gg/ysQAWBUE9Q">
-    <img
-      src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white"
-      alt="Join Discord"
-    />
-  </a>
-</p>
-It is intended to be used as a clean development baseline: desktop builds use an SDL hardware-accelerated compositor for fast UI preview, while device builds use the Linux/LVGL platform drivers.
+## About this project
 
-## Project Overview
+**さとー（@satos73）と、その Muse 上のエージェント「クマ」による個人プロジェクトです。**
 
-In this example project, we used small MVVM-style structure around LVGL:
+- さとー: 企画・方針決定・実機テスト担当。人間。
+- クマ: 設計・実装・ビルド担当。Meta のパーソナル AI「Muse」上で動くエージェントで、
+  クラウド VM 上でコードを書き、クロスコンパイルして .deb を作ります。
 
-- **UI layer**: screens and widgets are implemented with LVGL objects. `BaseScreen` owns the page root, title bar, nav bar, and page content. Widgets derive from `BaseWidgets` and expose a `build()` entry point.
-- **Data model**: `BaseModel` stores application state such as current page and theme mode.
-- **View model**: `BaseViewModel` exposes model state as LVGL observer subjects and provides UI actions such as page switching, counter updates, theme toggle, and quit request.
-- **Reactive/data binding**: `src/reactive` wraps LVGL observer subjects and common bindings so labels, styles, flags, widget values, and events can be connected to application state.
-- **Data flow**: user input triggers widget callbacks, callbacks update `BaseViewModel`, view model publishes subjects, and bound UI objects refresh automatically through LVGL observers.
-- **Platform layer**: platform code owns Linux input integration and other hardware-facing services. The nav bar maps hardware/keyboard keys `4` to `8`, plus `ESC` for quit.
+このため本文には「さとー報告」「さとー決定」のような表記が頻出しますが、
+上記の2名（1名と1体）のことです。開発のやりとりは主にスマホのチャットと
+CardputerZero 実機だけで行われています。
 
-Current demo UI:
+## Status: running on real hardware
 
-- Page 1: Hello World, font weight toggle, LVGL version info, light/dark theme toggle, page navigation.
-- Page 2: Counter page, increment/decrement actions, simple page navigation.
+2026-11-26 の昼休み、実機テストで確認済み（さとー報告）:
 
-## Repository Layout
+- `sudo dpkg -i CzLua_0.1.0_rev1_arm64.deb` でインストール成功、ランチャーに「CzLua」表示
+- サンプルのライフゲームが実機で動作、さとー評「かなり高速」
+- 色も正常（濃紺の背景に緑のセル）
+- キーボードで終了できた ＝ キー入力が画面に届くことを実証（未検証だった最大の関門を通過）
 
-```text
-.
-├── assets/                 # Runtime assets used by the app
-│   ├── applications/       # Desktop/app launcher metadata
-│   ├── audio/              # Audio resources
-│   ├── fonts/              # TTF fonts loaded through FreeType
-│   └── images/             # Image resources
-├── screenshot/             # Simulator screenshots for supported desktop platforms
-├── src/
-│   ├── app/                # Application lifecycle, asset loading, screen management
-│   ├── config/             # LVGL config headers for desktop and device builds
-│   ├── logger/             # Project logging wrapper
-│   ├── model/              # Base application data model
-│   ├── platform/           # Platform input/hardware integration
-│   ├── reactive/           # LVGL observer subjects and binding helpers
-│   ├── view/               # Theme, UI constants, screens, and widgets
-│   │   ├── screens/        # Page-level LVGL screens
-│   │   └── widgets/        # Reusable LVGL widgets such as nav bar and icon button
-│   ├── viewmodel/          # BaseViewModel and UI-facing actions/state subjects
-│   └── main.cpp            # Program entry point
-├── CMakeLists.txt          # Build graph, dependencies, options, targets
-├── CMakePresets.json       # Desktop/device configure and build presets
-└── README.md
+Fixed in rev2 (2026-11-27, さとーとクマで同日中に原因特定→修正→再ビルド):
+
+- タイトルバーとナビバーのアイコンが「豆腐」（□）表示だった件。実機ログに
+  `font asset not found: Phosphor-Fill.ttf` が2回出ていたのが決め手で、原因は
+  `/usr/share/cz_lua/` のディレクトリ権限が `770` だったこと（VM の umask 0007 が
+  パッケージに混入）。`sudo chmod 755 /usr/share/cz_lua` でその場は直り、
+  さとーの写真でタイトルバーの電池アイコン＋下部ナビ5アイコン全描画・豆腐ゼロを確認。
+  rev2 では .deb 内の全ディレクトリ権限を 755 に修正済み（パッケージ内で検証済み）で、
+  上書きインストールだけで chmod 不要。なお rev1 で動いていたライフゲームは
+  プロジェクトファイルが読めていなかったための内蔵フォールバック版だった（中身は同じ物）。
+- タイトルバーが Template の残り物「Template App」表示だった件。rev2 で「CZ Lua」に修正済み
+  （`src/model/base_model.cpp` の `app_title()` が `"CZ Lua"` を返す。GitHub にも push 済み）。
+
+rev2 の実機への上書きインストールは、さとーが手が空いたときで OK（`sudo dpkg -i CzLua_0.1.0_rev2_arm64.deb`）。
+
+## Quick start (on the device)
+
+```sh
+sudo dpkg -i CzLua_0.1.0_rev2_arm64.deb
+# ランチャーから「CzLua」を開く。ライフゲームが動き出します。
+# スペースキー: 模様をリシード（最初からやり直し）
+# 終了: キーボード操作で抜けられます（ナビバーの戻る操作）
+sudo apt remove czlua   # 削除するとき
 ```
 
-### Modules
-
-- `src/app/asset_manager.*`: resolves runtime assets from the optional CMake asset root, source tree `assets/`, and installed `/usr/share/<APP_NAME>/` path.
-- `src/app/screen_namager.cpp`: switches LVGL screens when the current page subject changes.
-- `src/app/desktop_simulator_frame.*`: owns the desktop SDL window, renderer, high-resolution shell textures, input, and LVGL texture composition.
-- `src/config/lv_conf_desktop.h`: desktop LVGL rendering settings.
-- `src/config/lv_conf_cm0.h`: embedded Linux/CardputerZero LVGL settings.
-- `src/platform/linux_input.*`: Linux evdev keypad support and desktop SDL keyboard routing for nav buttons.
-- `src/reactive/subjects.*`: typed wrappers around LVGL subjects.
-- `src/reactive/bindings.*`: helper bindings for labels, theme, widget values, flags, states, and events.
-- `src/view/widgets/navbar.*`: bottom navigation bar and icon-button action mapping.
-- `src/view/widgets/icon_button.*`: transparent icon button with font/color/theme support.
-
-## Build Options
-
-Common CMake cache options:
-
-| Option | Default | Description |
-| --- | --- | --- |
-| `USE_DESKTOP` | `ON` | Build SDL desktop simulator when `ON`; build embedded Linux target when `OFF`. |
-| `APP_NAME` | `template_app` | Application name used by installed asset lookup. |
-| `APP_ASSETS_ROOT` | empty | Optional runtime asset root. Expected layout includes `fonts/`, `images/`, etc. |
-| `APP_CONFIG_FILE` | platform default | Optional config path. Defaults to `config/template-app.conf` for desktop builds and `/etc/template-app.conf` for device builds. |
-| `APP_KEY_INPUT_DEVICE` | empty | Optional Linux evdev device path, e.g. `/dev/input/event0`. Empty means auto-scan `/dev/input/event*`. |
-| `APP_FRAMEBUFFER_DEVICE` | `/dev/fb0` | Linux framebuffer device used by embedded builds when `APP_USE_DRM=OFF`. |
-| `APP_USE_DRM` | `OFF` | Use LVGL's Linux DRM/KMS backend instead of fbdev for embedded builds. |
-| `APP_DRM_DEVICE` | `/dev/dri/card0` | DRM device path used when `APP_USE_DRM=ON`. |
-| `APP_DRM_CONNECTOR_ID` | `-1` | DRM connector id used when `APP_USE_DRM=ON`; `-1` auto-selects. |
-
-Asset lookup order:
-
-1. `APP_ASSETS_ROOT` when provided by CMake
-2. source-tree `assets/` for development
-3. `/usr/share/<APP_NAME>/` for installed deployments
-
-Theme startup behavior is configured in `config/template-app.conf`:
-
-```ini
-[application]
-dark_mode=yes
-```
-
-Set `dark_mode` to `yes` or `no`. The parser also accepts `true`/`false` and `1`/`0`.
-Installed device builds use `/etc/template-app.conf` as the system default. Changing the theme
-from the navigation bar (keyboard shortcut `6`) writes a per-user override to
-`$XDG_CONFIG_HOME/template-app/template-app.conf`, or `~/.config/template-app/template-app.conf`
-when `XDG_CONFIG_HOME` is not set. The per-user file takes precedence on the next launch.
-
-## Desktop Builds
-
-Desktop builds are intended for fast UI development. LVGL renders at the device-native `320x170` resolution, while SDL composites that texture into a hardware-accelerated, high-DPI simulator window with the full-resolution device shell.
-
-Current dependencies info:
-
-| Dependency | Version | Source | Notes |
-| --- | --- | --- | --- |
-| LVGL | `v9.5.0` | `CMakeLists.txt` FetchContent | Main GUI framework. |
-| fmt | `12.1.0` | System package manager or `vcpkg.json` override | Logging and formatted strings. |
-| libpng | `1.6.48` | System package manager or `vcpkg.json` override | PNG image decoding support for LVGL. |
-| libjpeg-turbo | `3.1.3` | System package manager or `vcpkg.json` override | JPEG image decoding support for LVGL. |
-| zlib | `1.3.1` | System package manager or `vcpkg.json` override | Compression dependency used by image libraries. |
-| SDL2 | `2.32.54` | System package manager or `vcpkg.json` override | Desktop simulator display and input backend. |
-| FreeType | `2.13.3` | System package manager or `vcpkg.json` override | Runtime TTF font rendering. |
-
-> Windows vcpkg installs use the versions above through manifest mode, with the registry baseline pinned in `vcpkg-configuration.json`.
-
-### Linux Desktop
-
-Debian/Ubuntu dependencies:
-
-```shell
-sudo apt update
-sudo apt install -y \
-  build-essential \
-  cmake \
-  ninja-build \
-  libpng-dev \
-  libjpeg-dev \
-  libfmt-dev \
-  libsdl2-dev \
-  libfreetype-dev \
-  zlib1g-dev
-```
-
-> [!NOTE]
-> Minimal CMake version is 3.31.0 (in coordinate with Debian 13 trixie), for Ubuntu user you can install latest cmake via `snap`
-> and run following cmake command with `/snap/bin/cmake`.
-
-
-Configure:
-
-```shell
-cmake --preset linux-x86-64
-```
-
-Build:
-
-```shell
-cmake --build --preset linux-x86-64-dbg
-# alternatively, you can run release build
-# cmake --build --preset linux-x86-64-rel
-```
-
-Run:
-
-```shell
-./build/linux-x86-64/Debug/template_app
-# or launch release build
-# ./build/linux-x86-64/Release/template_app
-```
-
-### macOS Desktop
-
-Install the Apple command-line tools:
-
-```shell
-xcode-select --install
-```
-
-Install dependencies with Homebrew:
-
-```shell
-brew install \
-  cmake \
-  ninja \
-  libpng \
-  jpeg \
-  fmt \
-  sdl2 \
-  freetype \
-  dpkg \
-  zlib
-```
-
-Configure for Apple Silicon:
-
-```shell
-cmake --preset darwin-arm64
-```
-
-Build:
-
-```shell
-cmake --build --preset darwin-arm64-dbg
-# alternatively, you can run release build
-# cmake --build --preset darwin-arm64-rel
-```
-
-Run:
-
-```shell
-./build/darwin-arm64/Debug/template_app
-# or launch release build
-# ./build/darwin-arm64/Release/template_app
-```
-
-For Intel macOS, use the `darwin-x86-64` configure preset and matching build preset:
-
-```shell
-cmake --preset darwin-x86-64
-cmake --build --preset darwin-x86-64-dbg
-# alternatively, you can run release build
-# cmake --build --preset darwin-x86-64-rel
-./build/darwin-x86-64/Debug/template_app
-# or launch release build
-# ./build/darwin-x86-64/Release/template_app
-```
-
-### Windows Desktop
-
-Install CMake and Ninja:
-
-```powershell
-winget install Kitware.CMake
-winget install Ninja-build.Ninja
-```
-
-Install a C++ toolchain. Choose one of the following.
-
-MSVC Build Tools:
-
-```powershell
-winget install Microsoft.VisualStudio.BuildTools
-```
-
-In the Visual Studio installer, enable **Desktop development with C++** and make sure MSVC and a Windows SDK are selected.
-
-MinGW-w64:
-
-```powershell
-winget install BrechtSanders.WinLibs.POSIX.UCRT
-```
-Alternatively, you can download from [`winlibs`](https://winlibs.com/). 
-
-Install vcpkg:
-
-```powershell
-git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-```
-
-Configure environmental variables for current terminal:
-
-```
-$env:VCPKG_ROOT="C:\vcpkg"
-$env:PATH="$env:VCPKG_ROOT;$env:PATH"
-```
-
-> [!TIP]
-> Change `VCPKG_ROOT` to your vcpkg installation directory if it is located elsewhere.
->
-> These environment variables are **session-scoped**, meaning they only apply to the current terminal session.
-> Once the terminal is closed, the variables will be lost and need to be set again in a new session.
-> If you want to a persist environment variable
-> ```powershell
-> setx VCPKG_ROOT "C:\vcpkg"
-> ```
-
-
-Configure and build with MSVC:
-
-> [!IMPORTANT]
-> These steps require launching CMake from a **Developer Command Prompt** or **Developer PowerShell** provided by Visual Studio.
->
-> This ensures that the MSVC environment (compiler, linker, and Windows SDK paths) is properly initialized.
->
-> Without this environment setup, CMake may fail to detect or correctly configure the MSVC toolchain.
-
-```powershell
-cmake --preset win32-msvc
-cmake --build --preset win32-msvc-dbg
-.\build\msvc\Debug\template_app.exe
-
-# alternatively for release build
-# cmake --build --preset win32-msvc-rel
-# .\build\msvc\Release\template_app.exe
-```
-
-Configure and build with MinGW-w64:
-
-> [!IMPORTANT]
-> These steps require a properly configured MinGW-w64 toolchain in your system PATH.
->
-> Please ensure the following compilers are available in the current terminal session:
-> - gcc
-> - g++
-> - ld
-> - ar
->
-> You can verify the setup by running:
-> ```powershell
-> gcc --version
-> g++ --version
-> ```
->
-> If these commands are not recognized, you must add MinGW-w64 `bin` directory to your PATH before configuring CMake.
-
-```powershell
-cmake --preset win32-mingw64
-cmake --build --preset win32-mingw64-dbg
-.\build\mingw64\Debug\template_app.exe
-
-# alternatively for release build
-# cmake --build --preset win32-mingw64-rel
-#.\build\mingw64\Release\template_app.exe
-```
-> [!NOTE]
-> `VCPKG` will handle the dependencies during CMake configuration process automatically, 
-> this may take several minutes depend on you network connection.
-
-## CardputerZero Cross Build
-
-This preset builds an aarch64 Linux target from a host machine with an `aarch64-linux-gnu-gcc/g++` toolchain.
-The BSP at `.cache/sdk_bsp-src` is treated as a sysroot: headers, libraries, startup objects, and pkg-config metadata are resolved from that directory first.
-If that directory does not exist on the first configure, the toolchain downloads and extracts `sdk_bsp.tar.gz` automatically before CMake runs compiler checks.
-
-Install a cross compile toolchain:
-
-+ Debian
-
-```shell
-sudo apt install crossbuild-essential-arm64
-```
-+ MacOS
-
-```shell
-brew install aarch64-unknown-linux-gnu
-```
-
-> [!NOTE]
-> On Windows, it's recommended to use WSL for cross build
-> or you can download [cross compile tools](https://sysprogs.com/getfile/2542/raspberry64-gcc14.2.0.exe) and configure the `PATH` yourself
-
-Configure:
-
-```shell
-cmake --preset cp0-cross
-```
-
-Build:
-
-```shell
-cmake --build --preset cp0-cross-dbg
-# or release build
-# cmake --build --preset cp0-cross-rel
-```
-
-Deploy the release package to your device after filling in your device user and IP:
-
-```shell
-REMOTE_USER=<user> REMOTE_HOST=<device-ip> ./deploy.sh
-```
-
-By default, the debian package is copied to '$HOME' folder, normally it's under '/home/\<user\>'.
-
-On your device, install the copied package with `apt` and replace the package file name with the one you copied:
-
-```shell
-sudo apt install --no-install-recommends ./TemplateApp_0.2.1_rev1_arm64.deb
-```
-
-
-## Development Guide
-
-### Navigation Keys
-
-The first page bottom nav bar maps hardware/keyboard keys from left to right:
-
-| Key | Nav item |
-| --- | --- |
-| `4` | First icon button |
-| `5` | Second icon button |
-| `6` | Third icon button |
-| `7` | Fourth icon button |
-| `8` | Fifth icon button |
-| `ESC` | First icon button / quit |
-
-The counter page uses direct keyboard shortcuts:
-
-| Key | Action |
-| --- | --- |
-| `ESC` | Return to the first page |
-| `Left` | Decrease the counter |
-| `Right` | Increase the counter |
-
-### Adding a Screen
-
-1. Add a new page enum value in `src/model/base_model.h`.
-2. Add the page transition/state logic in `BaseModel` and `BaseViewModel`.
-3. Create a screen under `src/view/screens/` deriving from `BaseScreen`.
-4. Extend `ScreenManager` to load the new screen when the page subject changes.
-5. Update `NavBar` icons and callbacks as needed.
-
-### Adding a Widget
-
-1. Derive from `BaseWidgets`.
-2. Implement `build()` and create LVGL objects under `parent_`.
-3. Use `reactive::bind_*` helpers for text, style, state, or event bindings.
-4. Keep LVGL observer lifetimes object-bound whenever possible with `lv_subject_add_observer_obj` or `reactive::observe_obj`.
-
-### Fonts and Assets
-
-Device builds use Noto Sans CJK Medium for the default bold text and Noto Sans CJK Regular for regular-weight text. They are loaded through FreeType from:
-
-```text
-/usr/share/fonts/opentype/noto/NotoSansCJK-Medium.ttc
-/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
-```
-
-When either system font is unavailable, the UI falls back to LVGL's built-in Montserrat fonts. Desktop builds always use the fallback fonts. Runtime icon and other asset fonts remain under:
-
-```text
-assets/fonts/
-/usr/share/<APP_NAME>/fonts/
-```
-
-You can also provide an asset root at configure time:
-
-```shell
-cmake --preset darwin-arm64 -DAPP_ASSETS_ROOT=/path/to/assets
-```
-
-
-## Debian Package
-
-Debian packages are produced with CPack and written to `dist/`. The package file name follows:
-
-```text
-<AppName>_<Version>_<Revision>_arm64.deb
-```
-
-Default example:
-
-```text
-dist/TemplateApp_0.2.1_rev1_arm64.deb
-```
-
-Package layout:
-
-| Path | Content |
-| --- | --- |
-| `/usr/bin/template_app` | Application executable. |
-| `/etc/template-app.conf` | System-default application settings, including the startup theme. |
-| `/usr/share/template_app/` | Runtime assets: fonts, images, audio. |
-| `/usr/share/APPLaunch/applications/template_app.desktop` | APPLaunch launcher entry. |
-| `/usr/share/APPLaunch/share/images/template*.png` | APPLaunch launcher icons/fallbacks. |
-| `/usr/lib/systemd/system/template_app.service` | Optional systemd service for embedded autostart. |
-| `/usr/share/doc/template_app/` | README and third-party asset license notes. |
-
-Build and package:
-
-```shell
+## The `czlua` API (v1 scope, decided 2026-11-25)
+
+LÖVE のコールバックモデル（`load` / `update(dt)` / `draw()`）を踏襲し、
+名前は本家との混同を避けて `czlua.*` に置いています。
+
+| API | LÖVE equivalent | Notes |
+|---|---|---|
+| `function load()` | love.load | 起動時に1回 |
+| `function update(dt)` | love.update | dt は秒 |
+| `function draw()` | love.draw | 毎フレーム |
+| `czlua.graphics.setColor(r, g, b)` | love.graphics.setColor | 0–1 の float |
+| `czlua.graphics.rectangle(mode, x, y, w, h)` | 同名 | mode は "fill"/"line" |
+| `czlua.graphics.circle(mode, x, y, r)` | 同名 | |
+| `czlua.graphics.line(x1, y1, x2, y2)` | 同名 | |
+| `czlua.graphics.points(x, y, ...)` | 同名 | |
+| `czlua.graphics.print(text, x, y)` | 同名 | ASCII のみ |
+| `czlua.graphics.clear(r, g, b)` | 同名 | |
+| `czlua.keyboard.isDown(key)` | love.keyboard.isDown | |
+| `function keypressed(key)` | love.keypressed | コールバック |
+| `czlua.system.getSize()` → 320, 170 | love.graphics.getDimensions | 固定値 |
+| `czlua.system.quit()` | love.event.quit | エディタへ戻る |
+| `czlua.files.readText / writeText` | — | プロジェクトフォルダ内のみ（v1 に入れる方向） |
+
+Decided for v1 (2026-11-25, さとー決定):
+
+- **名前: CZ Lua**（LÖVE のコードを直接派生させたものではないため LÖVE を含む名前は避ける。被りなし確認済み）
+- **名前空間: `czlua`**
+- スコア保存: v1 に入れる
+- ファイルの読み書き: want（プロジェクトフォルダ内限定で v1 方向）
+- スプライト・画像・サウンド: 後回し（v1.1/v2 候補）
+- サンプルゲーム: ライフゲーム（さとーの個人的趣味で選定）
+
+Editor (v1): vi 風モーダル編集（`hjkl` 移動、`i` で入力、`:w` 保存・`:q` 終了）。
+46 キーではカーソルキーが Fn 層の奥にあるため、修飾キー和音は必須にしません。
+
+## Sandbox (safety guards)
+
+コードを事前に読んで弾くのではなく、**危険な能力を最初から渡さない**設計です。
+
+- 読み込むライブラリは base / string / math / table / coroutine のみ。
+  `os` / `io` / `package` / `debug` は存在しないため `os.execute` は `os` 自体が nil で失敗します。
+  `load` / `require` / `dofile` も nil にしてあり、動的なコード生成によるすり抜けも塞いでいます。
+- 命令数フック: 1 万命令ごとに数え、1 回の呼び出しで 1 億命令を超えたらエラーで強制終了
+  （`while true do end` でも固まらないことを VM で検証済み）。
+- メモリ上限: 専用アロケータで 16 MB まで。超過はエラーで停止します。
+- ファイル confinement: `czlua.files` は相対パスのみ、`..` と絶対パスは拒否、プロジェクトフォルダの外には出られません。
+- すべて `pcall`（保護呼び出し）の中で回すため、Lua 側のエラーはアプリを落とさず画面表示で終わります。
+
+Future candidate (2026-11-26, さとー発案): LÖVE の GUI 部品ライブラリのような純 Lua ライブラリを、
+使ってみて必要になったら「許可制」で追加できるようにする。審査済みライブラリをアプリ本体に同梱し、
+プロジェクト側は許可リストにある物だけ `require` できる（任意ダウンロードやネイティブモジュールは不可）。
+純 Lua なら命令数・メモリの上限がそのまま効くので、サンドボックスの前提は崩れません。
+
+## Build (cross-compile from a Linux host)
+
+WSL2 + Ubuntu 24.04 が素直です（Windows ネイティブのクロス環境は非推奨）。
+詳しい手順メモ: `wsl_build_setup_2026-11-29.md`（週末用に別途用意済み）。
+
+```sh
+sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu ninja-build git pkg-config
+# 落とし穴: CMake は 3.31 以上が必須。Ubuntu 24.04 の apt 版は 3.28 で足りない。
+# Kitware のバイナリ tarball か `pip install cmake` で新しいものを。
+git clone https://github.com/satos/cz-lua   # WSL 内の ~/ に clone（/mnt/c 配下は遅い）
 cmake --preset cp0-cross
 cmake --build --preset cp0-cross-rel
 cpack --preset cp0-cross-deb
+# または cmake --workflow --preset cp0-cross-package
 ```
 
-Or run the full configure, release build, and package flow with one workflow preset:
+Measured costs (VM 実測): 初回 configure 約 10 分、キャッシュ込み約 2.3 GB、2 回目以降のビルドは 2 分弱。
+対象アーキテクチャは **aarch64**（armhf ではない）。
 
-```shell
-cmake --workflow --preset cp0-cross-package
-```
+On-device build (romance option): Template には `cp0-native` プリセットがあり、実機の Debian 13 の
+cmake は 3.31 系で要件を満たします。ただし RAM 512 MB のため `-j1` + zram、フルビルドは
+30 分〜1 時間コースで USB 給電が前提。フルビルドは初回だけの儀式、あとは増分、という落としどころです。
 
-> [!NOTE]
-> Use Debian based Linux host with CPack generator 
-> as other OS may not resolve the dependencies correctly
-> no full dpkg, dpkg-shlibdeps, objdump and readelf support
+## Roadmap
 
-# Contributing
+- **v0 (done)**: Lua 実行＋描画のみ。VM 上でライフゲーム 90 フレーム・ボール 60 フレームを検証済み。
+- **v0.1 (done, 2026-11-25)**: 公式 Template 組み込み＋ aarch64 クロスコンパイル＋ .deb 化（`CzLua_0.1.0_rev1_arm64.deb`）、
+  GitHub 初回 push（テキスト 148 ファイル、commit `ab175e12`）。
+- **rev2 (done, 2026-11-27)**: 豆腐アイコン修正（原因は `/usr/share/cz_lua/` の権限 770、VM の umask 0007 の混入。
+  .deb 内の全ディレクトリを 755 に修正、パッケージ内で検証済み）＋タイトル「CZ Lua」化。GitHub に push 済み。
+  実機への上書きインストールは `sudo dpkg -i CzLua_0.1.0_rev2_arm64.deb`（chmod 不要）。
+- **v1**: エディタ＋ファイル管理＋保存＋エラー表示＋サンプル同梱。ここで「端末内で完結」を名乗れる。
+- **v1.1 候補**: 簡易サウンド（ES8389 で beep / 矩形波）。
+- **v2 候補**: ドット絵エディタ＋スプライト API、複数ファイル対応、シンタックスハイライト、許可制パッケージ。
 
-If you have better framework designs on Embedded Linux or build system practice, feel free to let us know.
+## License
 
-# License
-
-Project released under MIT license. More license information can be found in assets folder. 
+- CZ Lua / Template base: MIT (see `LICENSE` / assets folder for third-party asset notes)
+- Lua 5.4.8: MIT (bundled from source in `third_party/lua/`)
