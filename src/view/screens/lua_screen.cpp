@@ -17,6 +17,7 @@
 
 #include "lua_screen.h"
 
+#include "linux_input.h"
 #include "theme.h"
 
 #include <cstdio>
@@ -115,7 +116,23 @@ LuaScreen::LuaScreen(viewmodel::BaseViewModel& view_model, app::AssetManager& as
     init();
 }
 
+LuaScreen::LuaScreen(viewmodel::BaseViewModel& view_model, app::AssetManager& assets,
+                     CzNavigator* nav, CzProject project, std::string source)
+    : BaseScreen(view_model, assets),
+      nav_(nav),
+      project_(std::move(project)),
+      source_override_(std::move(source)),
+      runner_mode_(true) {
+    init();
+    if (nav_) {
+        platform::set_key_capture_listener(capture_cb, this);
+    }
+}
+
 LuaScreen::~LuaScreen() {
+    if (nav_) {
+        platform::clear_key_capture_listener(capture_cb, this);
+    }
     if (timer_) {
         lv_timer_delete(timer_);
         timer_ = nullptr;
@@ -146,15 +163,22 @@ void LuaScreen::build_content(lv_obj_t* content) {
     // Find the project script.
     std::string source;
     std::string project_dir = "/tmp";
-    for (const char* path : kProjectCandidates) {
-        source = read_file(path);
-        if (!source.empty()) {
-            const char* slash = std::strrchr(path, '/');
-            if (slash) project_dir = std::string(path, (size_t)(slash - path));
-            break;
+    if (runner_mode_) {
+        // v1: run the editor's buffer for the selected project; the
+        // sandbox root is the (user-area) project folder.
+        source = source_override_;
+        project_dir = project_.dir;
+    } else {
+        for (const char* path : kProjectCandidates) {
+            source = read_file(path);
+            if (!source.empty()) {
+                const char* slash = std::strrchr(path, '/');
+                if (slash) project_dir = std::string(path, (size_t)(slash - path));
+                break;
+            }
         }
+        if (source.empty()) source = kFallbackScript;
     }
-    if (source.empty()) source = kFallbackScript;
 
     engine_ = std::make_unique<czlua::LuaEngine>(*gfx_, project_dir);
 
@@ -199,9 +223,40 @@ void LuaScreen::timer_cb(lv_timer_t* timer) {
     }
     if (self->engine_->quitRequested()) {
         self->running_ = false;
+        if (self->nav_) self->exit_to_editor();
         return;
     }
     if (self->canvas_) lv_obj_invalidate(self->canvas_);
+}
+
+void LuaScreen::exit_to_editor() {
+    running_ = false;
+    if (timer_) {
+        lv_timer_delete(timer_);
+        timer_ = nullptr;
+    }
+    if (nav_) nav_->openEditor(project_);
+}
+
+bool LuaScreen::capture_cb(uint32_t key, void* user_data) {
+    auto* self = static_cast<LuaScreen*>(user_data);
+    if (!self) return false;
+    if (key == LV_KEY_ESC) {
+        // Esc always leaves the runner (also from the error display)
+        // and returns to the editor.
+        self->exit_to_editor();
+        return true;
+    }
+    if (!self->running_ || !self->engine_) return true; // swallow
+    std::string name = key_name(key);
+    if (name.empty()) return true;
+    self->engine_->setKey(name, true);
+    std::string err;
+    if (!self->engine_->keyPressedEvent(name, err)) {
+        self->show_error(err);
+    }
+    self->engine_->setKey(name, false); // momentary press
+    return true;
 }
 
 void LuaScreen::key_cb(lv_event_t* e) {

@@ -35,6 +35,8 @@ KeyReleaseListener key_release_listener = nullptr;
 void* key_release_listener_user_data = nullptr;
 GlobalKeyListener global_key_listener = nullptr;
 void* global_key_listener_user_data = nullptr;
+KeyCaptureListener key_capture_listener = nullptr;
+void* key_capture_listener_user_data = nullptr;
 
 constexpr uint32_t kLongPressMs = 700;
 
@@ -46,6 +48,11 @@ struct EvdevKeypad {
     bool router_event_pending{false};
     uint32_t router_key{0};
     bool router_pressed{false};
+    // CZ Lua v1: modifier state for the full-keyboard map below. The
+    // 46-key board sends plain evdev codes; shifted characters are
+    // produced here from the tracked Shift / Caps state.
+    bool shift_down{false};
+    bool caps_lock{false};
 };
 #endif
 
@@ -103,6 +110,14 @@ bool emit_global_key(uint32_t key, bool long_pressed) {
            global_key_listener(key, describe_key(key), long_pressed, global_key_listener_user_data);
 }
 
+bool emit_capture_key(uint32_t key) {
+    // Special keys (screenshot, help) bypass capture on purpose.
+    if (key >= kSpecialKeyBase) {
+        return false;
+    }
+    return key_capture_listener && key_capture_listener(key, key_capture_listener_user_data);
+}
+
 void long_press_timer_cb(lv_timer_t*) {
     if (!pressed_key || long_press_sent || lv_tick_elaps(press_started_at) < kLongPressMs) {
         return;
@@ -130,7 +145,13 @@ void route_key_state(uint32_t key, bool pressed) {
         pressed_key = key;
         press_started_at = lv_tick_get();
         long_press_sent = false;
-        pressed_key_consumed = emit_global_key(key, false);
+        // A capturing screen (CZ Lua editor / file list / runner) gets
+        // the key first; only unconsumed keys fall through to the
+        // global shortcuts and the nav-button router.
+        pressed_key_consumed = emit_capture_key(key);
+        if (!pressed_key_consumed) {
+            pressed_key_consumed = emit_global_key(key, false);
+        }
         ensure_long_press_timer();
         if (!pressed_key_consumed) {
             dispatch_nav_key(key);
@@ -183,7 +204,12 @@ void key_event_cb(lv_event_t* event) {
 }
 
 #if !USE_DESKTOP
-uint32_t map_evdev_key(uint16_t code) {
+// CZ Lua v1: the map now covers the whole keyboard so the built-in
+// editor can receive text. Letters honour Shift/Caps; the punctuation
+// pairs follow the standard (US) evdev layout. Special keys keep
+// their LV_KEY_* / platform codes. Returns 0 for unmapped codes.
+uint32_t map_evdev_key(uint16_t code, bool shift, bool caps) {
+    const bool upper = shift != caps;
     switch (code) {
         case KEY_ESC:
             return LV_KEY_ESC;
@@ -191,27 +217,69 @@ uint32_t map_evdev_key(uint16_t code) {
             return LV_KEY_LEFT;
         case KEY_RIGHT:
             return LV_KEY_RIGHT;
-        case KEY_Z:
-            return 'z';
-        case KEY_C:
-            return 'c';
-        case KEY_4:
-            return '4';
-        case KEY_5:
-            return '5';
-        case KEY_6:
-            return '6';
-        case KEY_7:
-            return '7';
-        case KEY_8:
-            return '8';
+        case KEY_UP:
+            return LV_KEY_UP;
+        case KEY_DOWN:
+            return LV_KEY_DOWN;
+        case KEY_ENTER:
+            return LV_KEY_ENTER;
+        case KEY_BACKSPACE:
+            return LV_KEY_BACKSPACE;
+        case KEY_TAB:
+            return LV_KEY_NEXT; // LVGL has no TAB key code; 9 doubles as Tab
+        case KEY_DELETE:
+            return LV_KEY_DEL;
+        case KEY_HOME:
+            return LV_KEY_HOME;
+        case KEY_END:
+            return LV_KEY_END;
+        case KEY_SPACE:
+            return ' ';
         case KEY_SYSRQ:
             return kKeyPrintScreen;
         case KEY_HELP:
             return kKeyHelp;
         default:
-            return 0;
+            break;
     }
+
+    struct CharPair {
+        uint16_t code;
+        char base;
+        char shifted;
+    };
+    static constexpr CharPair kCharPairs[] = {
+        {KEY_1, '1', '!'},          {KEY_2, '2', '@'},   {KEY_3, '3', '#'},
+        {KEY_4, '4', '$'},          {KEY_5, '5', '%'},   {KEY_6, '6', '^'},
+        {KEY_7, '7', '&'},          {KEY_8, '8', '*'},   {KEY_9, '9', '('},
+        {KEY_0, '0', ')'},          {KEY_MINUS, '-', '_'}, {KEY_EQUAL, '=', '+'},
+        {KEY_LEFTBRACE, '[', '{'},  {KEY_RIGHTBRACE, ']', '}'},
+        {KEY_SEMICOLON, ';', ':'},  {KEY_APOSTROPHE, '\'', '"'},
+        {KEY_GRAVE, '`', '~'},      {KEY_BACKSLASH, '\\', '|'},
+        {KEY_COMMA, ',', '<'},      {KEY_DOT, '.', '>'}, {KEY_SLASH, '/', '?'},
+    };
+    for (const auto& pair : kCharPairs) {
+        if (pair.code == code) {
+            return static_cast<uint32_t>(shift ? pair.shifted : pair.base);
+        }
+    }
+
+    // evdev letter codes follow the QWERTY rows, not the alphabet, so
+    // they need an explicit table.
+    static constexpr uint16_t kLetterCodes[] = {
+        KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_U, KEY_I, KEY_O, KEY_P,
+        KEY_A, KEY_S, KEY_D, KEY_F, KEY_G, KEY_H, KEY_J, KEY_K, KEY_L,
+        KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B, KEY_N, KEY_M,
+    };
+    static constexpr char kLetterChars[] = "qwertyuiopasdfghjklzxcvbnm";
+    for (size_t i = 0; i < sizeof(kLetterCodes) / sizeof(kLetterCodes[0]); ++i) {
+        if (kLetterCodes[i] == code) {
+            const char letter = kLetterChars[i];
+            return static_cast<uint32_t>(upper ? (letter - 'a' + 'A') : letter);
+        }
+    }
+
+    return 0;
 }
 
 bool has_nav_keys(int fd) {
@@ -244,7 +312,19 @@ void evdev_read_cb(lv_indev_t* indev, lv_indev_data_t* data) {
             continue;
         }
 
-        const auto key = map_evdev_key(input.code);
+        // Modifier keys only update the tracked state; they never
+        // become key events of their own.
+        if (input.code == KEY_LEFTSHIFT || input.code == KEY_RIGHTSHIFT) {
+            if (input.value == 1) keypad->shift_down = true;
+            if (input.value == 0) keypad->shift_down = false;
+            continue;
+        }
+        if (input.code == KEY_CAPSLOCK) {
+            if (input.value == 1) keypad->caps_lock = !keypad->caps_lock;
+            continue;
+        }
+
+        const auto key = map_evdev_key(input.code, keypad->shift_down, keypad->caps_lock);
         if (!key || input.value == 2) {
             continue;
         }
@@ -384,6 +464,18 @@ void unregister_nav_button(size_t index, lv_obj_t* button) {
 
     if (!button || nav_buttons[index] == button) {
         nav_buttons[index] = nullptr;
+    }
+}
+
+void set_key_capture_listener(KeyCaptureListener listener, void* user_data) {
+    key_capture_listener = listener;
+    key_capture_listener_user_data = user_data;
+}
+
+void clear_key_capture_listener(KeyCaptureListener listener, void* user_data) {
+    if (key_capture_listener == listener && key_capture_listener_user_data == user_data) {
+        key_capture_listener = nullptr;
+        key_capture_listener_user_data = nullptr;
     }
 }
 

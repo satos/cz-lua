@@ -17,6 +17,12 @@ using GlobalKeyListener = bool (*)(uint32_t key,
                                    const char* key_name,
                                    bool long_pressed,
                                    void* user_data);
+// CZ Lua v1: a screen (file list / editor / runner) can capture key
+// presses before the global shortcut handler and the nav-button router
+// see them. Return true to consume the key. Special keys (PrintScreen,
+// Help) are never offered to the capture listener so screenshots and
+// the help popup keep working while a screen captures input.
+using KeyCaptureListener = bool (*)(uint32_t key, void* user_data);
 
 void init_key_input(lv_display_t* display);
 void attach_key_router(lv_indev_t* indev);
@@ -27,6 +33,8 @@ void set_key_release_listener(KeyReleaseListener listener, void* user_data);
 void clear_key_release_listener(KeyReleaseListener listener, void* user_data);
 void set_global_key_listener(GlobalKeyListener listener, void* user_data);
 void clear_global_key_listener(GlobalKeyListener listener, void* user_data);
+void set_key_capture_listener(KeyCaptureListener listener, void* user_data);
+void clear_key_capture_listener(KeyCaptureListener listener, void* user_data);
 const char* describe_key(uint32_t key);
 
 } // namespace platform

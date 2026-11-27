@@ -6,6 +6,11 @@
 
 #include "screen_manager.h"
 
+#include "editor_screen.h"
+#include "file_list_screen.h"
+
+#include <algorithm>
+
 #include "apple_screen.h"
 #include "lua_screen.h"
 #include "butter_screen.h"
@@ -36,6 +41,11 @@ ScreenManager::ScreenManager(viewmodel::BaseViewModel& view_model, AssetManager&
 
 ScreenManager::~ScreenManager() {
     lv_async_call_cancel(flush_requested_page_async, this);
+    for (auto* entry : pending_nav_) {
+        lv_async_call_cancel(nav_async_cb, entry);
+        delete entry;
+    }
+    pending_nav_.clear();
 
     if (page_observer_) {
         lv_observer_remove(page_observer_);
@@ -55,7 +65,9 @@ void ScreenManager::start() {
 }
 
 void ScreenManager::show_apple_screen() {
-    load_screen(std::make_unique<screen::LuaScreen>(view_model_, assets_)); // CZ Lua: main page is the Lua runner
+    // CZ Lua v1: the main page is the project file list; the editor
+    // and the runner hang off it via the CzNavigator interface.
+    load_screen(std::make_unique<screen::FileListScreen>(view_model_, assets_, this));
     loaded_page_ = model::AppPage::Apple;
     has_loaded_page_ = true;
 }
@@ -93,6 +105,68 @@ void ScreenManager::flush_requested_page() {
 
 lv_obj_t* ScreenManager::current_screen() const {
     return current_screen_ ? current_screen_->root() : nullptr;
+}
+
+// ------------------------------------------------------- CZ Lua nav
+void ScreenManager::openFileList() {
+    queue_nav(NavRequest{NavKind::FileList, screen::CzProject{}, std::string(), false});
+}
+
+void ScreenManager::openEditor(const screen::CzProject& project) {
+    queue_nav(NavRequest{NavKind::Editor, project, std::string(), false});
+}
+
+void ScreenManager::openRunner(const screen::CzProject& project, const std::string& source,
+                               bool editor_dirty) {
+    queue_nav(NavRequest{NavKind::Runner, project, source, editor_dirty});
+}
+
+void ScreenManager::queue_nav(NavRequest request) {
+    auto* heap = new NavEntry{this, std::move(request)};
+    pending_nav_.push_back(heap);
+    if (lv_async_call(nav_async_cb, heap) != LV_RESULT_OK) {
+        pending_nav_.erase(std::remove(pending_nav_.begin(), pending_nav_.end(), heap),
+                           pending_nav_.end());
+        delete heap;
+    }
+}
+
+void ScreenManager::nav_async_cb(void* user_data) {
+    auto* entry = static_cast<NavEntry*>(user_data);
+    if (entry && entry->manager) {
+        auto& pending = entry->manager->pending_nav_;
+        pending.erase(std::remove(pending.begin(), pending.end(), entry), pending.end());
+        entry->manager->apply_nav(entry->request);
+    }
+    delete entry;
+}
+
+void ScreenManager::apply_nav(const NavRequest& request) {
+    switch (request.kind) {
+        case NavKind::FileList:
+            has_session_ = false;
+            load_screen(std::make_unique<screen::FileListScreen>(view_model_, assets_, this));
+            break;
+        case NavKind::Editor:
+            if (has_session_ && session_project_.mainPath == request.project.mainPath) {
+                load_screen(std::make_unique<screen::EditorScreen>(
+                    view_model_, assets_, this, request.project, session_text_, session_dirty_));
+            } else {
+                load_screen(std::make_unique<screen::EditorScreen>(view_model_, assets_, this,
+                                                                    request.project));
+            }
+            break;
+        case NavKind::Runner:
+            session_project_ = request.project;
+            session_text_ = request.source;
+            session_dirty_ = request.editor_dirty;
+            has_session_ = true;
+            load_screen(std::make_unique<screen::LuaScreen>(view_model_, assets_, this,
+                                                            request.project, request.source));
+            break;
+    }
+    loaded_page_ = model::AppPage::Apple;
+    has_loaded_page_ = true;
 }
 
 void ScreenManager::load_screen(std::unique_ptr<screen::BaseScreen> next_screen) {

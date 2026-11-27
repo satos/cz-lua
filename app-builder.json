@@ -1,11 +1,11 @@
 {
   "app_name": "CZ Lua",
   "package_name": "cz_lua",
-  "version": "0.1.0",
-  "description": "CZ Lua: a LÖVE-style Lua environment for CardputerZero (v0 test build)",
+  "version": "0.2.0",
+  "description": "CZ Lua: a LÖVE-style Lua environment for CardputerZero (v1: built-in editor)",
   "store": {
     "summary": "Write and run small Lua games on the device itself",
-    "description": "CZ Lua is a self-contained Lua 5.4 environment for CardputerZero with a LÖVE-style load/update/draw API (czlua.*). v0 test build: runs the bundled Game of Life sample.",
+    "description": "CZ Lua is a self-contained Lua 5.4 environment for CardputerZero with a LÖVE-style load/update/draw API (czlua.*) and a built-in vi-style editor: write, save and run small games entirely on the device.",
     "categories": [
       "TODO: pick 1-2 real categories from docs/APP_BUILDER_JSON.md"
     ],
